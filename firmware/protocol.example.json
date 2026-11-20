@@ -1,0 +1,10 @@
+{
+  "topic": "radio/radio-demo001/commands",
+  "payload": { "command": "set_station", "url": "http://example.com/live.mp3", "requestId": "123" },
+  "reportedShadow": {
+    "state": { "reported": {
+      "playing": true, "stationUrl": "http://example.com/live.mp3", "volume": 50,
+      "firmwareVersion": "0.1.0"
+    }}
+  }
+}
