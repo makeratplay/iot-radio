@@ -1,4 +1,4 @@
-import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
+import type { APIGatewayProxyHandlerV2WithJWTAuthorizer } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { IoTDataPlaneClient, PublishCommand, GetThingShadowCommand } from '@aws-sdk/client-iot-data-plane';
@@ -14,7 +14,7 @@ const json = (statusCode: number, data: unknown) => ({
 const validDevice = (id: string) => /^radio-[a-zA-Z0-9_-]{1,64}$/.test(id);
 const validStream = (url: unknown) => typeof url === 'string' && /^https?:\/\/[^\s]+$/i.test(url) && url.length <= 500;
 
-export const handler: APIGatewayProxyHandlerV2 = async event => {
+export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async event => {
   const method = event.requestContext.http.method;
   const path = event.rawPath;
   const owner = event.requestContext.authorizer?.jwt?.claims?.sub;

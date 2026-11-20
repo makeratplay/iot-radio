@@ -12,13 +12,13 @@ Find your account's IoT data ATS endpoint with:
 ```sh
 aws iot describe-endpoint --endpoint-type iot:Data-ATS --query endpointAddress --output text
 ```
-Pass it as `IOT_DATA_ENDPOINT` to the CDK deploy environment, e.g. `IOT_DATA_ENDPOINT=... npm run deploy`. The Lambda endpoint must be set for command publishing and shadow reads.
+Put that hostname in `secrets/.env` as `IOT_DATA_ENDPOINT`, then deploy the backend. The Lambda endpoint must be set for command publishing and shadow reads.
 
 ## Register device ownership (prototype administrator step)
 ```sh
-aws dynamodb put-item --table-name TABLE_NAME --item '{"pk":{"S":"USER#COGNITO_SUB"},"sk":{"S":"DEVICE#radio-demo001"},"id":{"S":"radio-demo001"}}'
+aws dynamodb put-item --table-name TABLE_NAME --item '{"pk":{"S":"USER#GOOGLE_SUB"},"sk":{"S":"DEVICE#radio-demo001"},"id":{"S":"radio-demo001"}}'
 ```
-Replace TABLE_NAME, COGNITO_SUB and Thing ID. Do not expose this registration operation to unauthenticated users.
+Replace TABLE_NAME, GOOGLE_SUB and Thing ID. GOOGLE_SUB is the owner id shown in the web console after Google sign-in. Do not expose this registration operation to unauthenticated users.
 
 ## Device protocol
 Subscribe: `radio/{thingName}/commands`
@@ -28,4 +28,4 @@ Update reported state: `$aws/things/{thingName}/shadow/update`
 The current firmware uses `esp32/demo/commands`; migrate its topic strings before using the web console.
 
 ## Future hardening
-Implement secure claiming (one-time claim code and ownership proof), Cognito group-based admin operations, AppSync Events Cognito/IAM browser auth, IoT Rules -> Lambda -> AppSync Events for status fan-out, and AWS IoT fleet provisioning for scale.
+Implement secure claiming (one-time claim code and ownership proof), an admin workflow for device registration, AppSync Events browser auth, IoT Rules -> Lambda -> AppSync Events for status fan-out, and AWS IoT fleet provisioning for scale.

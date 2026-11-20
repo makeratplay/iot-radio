@@ -4,10 +4,13 @@ cdk.out/
 .env
 .env.*
 !.env.example
+dev.env
 *.pem
 *.key
 *.crt
 *.p12
-secrets/
+secrets/*
+!secrets/.env.example
 .DS_Store
 .vscode/
+firmware/aws_secrets.h

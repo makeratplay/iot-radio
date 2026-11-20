@@ -6,7 +6,6 @@ import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigw from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as path from 'path';
 
@@ -19,13 +18,12 @@ export class RadioStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN
     });
-    const pool = new cognito.UserPool(this, 'Users', {
-      selfSignUpEnabled: false, signInAliases: { email: true },
-      passwordPolicy: { minLength: 12 }, removalPolicy: cdk.RemovalPolicy.RETAIN
-    });
-    const client = pool.addClient('WebClient', { authFlows: { userSrp: true } });
+    const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!googleClientId || !googleClientId.endsWith('.apps.googleusercontent.com')) {
+      throw new Error('Set GOOGLE_CLIENT_ID in secrets/.env to the Google OAuth web client ID before deploying.');
+    }
     const handler = new nodejs.NodejsFunction(this, 'ApiHandler', {
-      entry: path.join(__dirname, '../src/api.ts'),
+      entry: path.join(__dirname, '../../src/api.ts'),
       runtime: lambda.Runtime.NODEJS_20_X,
       environment: { TABLE_NAME: table.tableName, IOT_ENDPOINT: process.env.IOT_DATA_ENDPOINT || '' },
       bundling: { minify: true }
@@ -41,15 +39,20 @@ export class RadioStack extends cdk.Stack {
     const api = new apigw.HttpApi(this, 'HttpApi', {
       corsPreflight: { allowOrigins: ['*'], allowHeaders: ['authorization','content-type'], allowMethods: [apigw.CorsHttpMethod.ANY] }
     });
-    const jwt = new authorizers.HttpUserPoolAuthorizer('Jwt', pool, { userPoolClients: [client] });
+    const jwt = new authorizers.HttpJwtAuthorizer('GoogleJwt', 'https://accounts.google.com', {
+      jwtAudience: [googleClientId]
+    });
+    // ANY would include OPTIONS and send the browser preflight through the JWT authorizer.
+    // A 401 preflight is reported by the browser as a CORS error.
     api.addRoutes({
-      path: '/{proxy+}', methods: [apigw.HttpMethod.ANY],
+      path: '/{proxy+}',
+      methods: [apigw.HttpMethod.GET, apigw.HttpMethod.POST, apigw.HttpMethod.PUT, apigw.HttpMethod.PATCH, apigw.HttpMethod.DELETE, apigw.HttpMethod.HEAD],
       integration: new integrations.HttpLambdaIntegration('LambdaIntegration', handler),
       authorizer: jwt
     });
 
-    // AppSync Events resources: API key for *prototype* only. Do not expose
-    // the key in a public browser; use Cognito authorization before enabling clients.
+    // AppSync Events stays on IAM until a browser client is wired up.
+    // Do not add an API key and ship it to the browser.
     const events = new cdk.CfnResource(this, 'EventsApi', {
       type: 'AWS::AppSync::Api',
       properties: { Name: 'iot-radio-events', EventConfig: {
@@ -64,8 +67,7 @@ export class RadioStack extends cdk.Stack {
       properties: { ApiId: events.getAtt('ApiId').toString(), Name: 'status' }
     });
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.apiEndpoint });
-    new cdk.CfnOutput(this, 'UserPoolId', { value: pool.userPoolId });
-    new cdk.CfnOutput(this, 'UserPoolClientId', { value: client.userPoolClientId });
+    new cdk.CfnOutput(this, 'GoogleClientId', { value: googleClientId });
     new cdk.CfnOutput(this, 'TableName', { value: table.tableName });
     new cdk.CfnOutput(this, 'EventsApiId', { value: events.getAtt('ApiId').toString() });
   }
